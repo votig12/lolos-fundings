@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>8-Börsen Funding-Radar</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen p-4 md:p-8 font-sans">
+    <div class="max-w-6xl mx-auto">
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+            <div>
+                <h1 class="text-2xl md:text-3xl font-bold text-emerald-400">8-Börsen Funding-Radar (OI > 2 Mio. $)</h1>
+                <p class="text-slate-400 text-sm mt-1">Hyperliquid • Bybit • Aster • Lighter • Extended • Variational • Bitget • XT.com</p>
+                <p class="text-slate-500 text-xs mt-1">Letzter automatischer 4h-Scan: <span id="last-update" class="text-white font-semibold">Lädt...</span></p>
+            </div>
+            <div class="flex flex-wrap gap-2">
+                <button onclick="filterMode('ALL')" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-lg text-sm font-medium">Alle Top 40</button>
+                <button onclick="filterMode('STABIL')" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 rounded-lg text-sm font-medium">Nur Stabile</button>
+                <button onclick="triggerRefresh()" id="refresh-btn" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm font-medium">Jetzt neu scannen</button>
+            </div>
+        </div>
+
+        <div class="bg-slate-900 rounded-xl border border-slate-800 overflow-x-auto shadow-xl">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="border-b border-slate-800 text-slate-400 text-xs uppercase bg-slate-900/50">
+                        <th class="p-4">#</th>
+                        <th class="p-4">Coin</th>
+                        <th class="p-4">Open Interest</th>
+                        <th class="p-4">Spread (APR)</th>
+                        <th class="p-4">LONG gehen auf</th>
+                        <th class="p-4">SHORT gehen auf</th>
+                        <th class="p-4">Stabilitäts-Check</th>
+                    </tr>
+                </thead>
+                <tbody id="table-body" class="divide-y divide-slate-800/60 text-sm">
+                    <tr><td colspan="7" class="p-8 text-center text-slate-500">Scanne alle 8 Börsen...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        let allData = [];
+        let currentFilter = 'ALL';
+
+        async function loadData() {
+            const res = await fetch('/api/data');
+            const json = await res.json();
+            document.getElementById('last-update').innerText = json.timestamp;
+            allData = json.data;
+            renderTable();
+        }
+
+        function filterMode(mode) {
+            currentFilter = mode;
+            renderTable();
+        }
+
+        async function triggerRefresh() {
+            const btn = document.getElementById('refresh-btn');
+            btn.innerText = "Scannt 8 Börsen...";
+            btn.disabled = true;
+            await fetch('/api/refresh', { method: 'POST' });
+            await loadData();
+            btn.innerText = "Jetzt neu scannen";
+            btn.disabled = false;
+        }
+
+        function renderTable() {
+            const tbody = document.getElementById('table-body');
+            const filtered = currentFilter === 'STABIL' 
+                ? allData.filter(d => d.status === 'STABIL') 
+                : allData;
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-slate-400">Keine Coins für diesen Filter gefunden (warte auf den 2. 4h-Zyklus für die Stabilitätsprüfung oder klicke oben auf „Alle Top 40“).</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = filtered.map((row, idx) => {
+                const isStable = row.status === 'STABIL';
+                const badgeClass = isStable 
+                    ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' 
+                    : (row.status.includes('NEU') ? 'bg-blue-500/20 text-blue-300 border-blue-500/30' : 'bg-amber-500/20 text-amber-300 border-amber-500/30');
+
+                return `
+                <tr class="hover:bg-slate-800/40 transition">
+                    <td class="p-4 text-slate-500">${idx + 1}</td>
+                    <td class="p-4 font-bold text-white">${row.coin}</td>
+                    <td class="p-4 text-slate-300">$${Math.round(row.oi).toLocaleString('de-CH')}</td>
+                    <td class="p-4 font-bold text-emerald-400">${row.spread.toFixed(1)}%</td>
+                    <td class="p-4"><span class="px-2.5 py-1 rounded bg-emerald-950 text-emerald-400 border border-emerald-800/50 font-medium">${row.long_venue} (${row.long_apr.toFixed(1)}%)</span></td>
+                    <td class="p-4"><span class="px-2.5 py-1 rounded bg-rose-950 text-rose-400 border border-rose-800/50 font-medium">${row.short_venue} (${row.short_apr.toFixed(1)}%)</span></td>
+                    <td class="p-4"><span class="px-2.5 py-1 rounded-full text-xs border ${badgeClass}">${row.status}</span></td>
+                </tr>`;
+            }).join('');
+        }
+
+        loadData();
+    </script>
+</body>
+</html>
