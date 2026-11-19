@@ -15,7 +15,7 @@
                 <p class="text-slate-500 text-xs mt-1">Letzter automatischer 4h-Scan: <span id="last-update" class="text-white font-semibold">Lädt...</span></p>
             </div>
             <div class="flex flex-wrap gap-2">
-                <button onclick="filterMode('ALL')" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-lg text-sm font-medium">Alle Top 40</button>
+                <button onclick="filterMode('ALL')" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-lg text-sm font-medium">Alle Top 100</button>
                 <button onclick="filterMode('STABIL')" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 rounded-lg text-sm font-medium">Nur Stabile</button>
                 <button onclick="triggerRefresh()" id="refresh-btn" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm font-medium">Jetzt neu scannen</button>
             </div>
@@ -75,7 +75,7 @@
                 : allData;
 
             if (filtered.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-slate-400">Keine Coins für diesen Filter gefunden (warte auf den 2. 4h-Zyklus für die Stabilitätsprüfung oder klicke oben auf „Alle Top 40“).</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-slate-400">Keine Coins für diesen Filter gefunden (warte auf den 2. 4h-Zyklus für die Stabilitätsprüfung oder klicke oben auf „Alle Top 100“).</td></tr>`;
                 return;
             }
 
