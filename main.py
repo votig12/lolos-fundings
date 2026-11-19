@@ -205,7 +205,7 @@ def update_all_data():
     now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
-
+    c.execute("DELETE FROM snapshots WHERE timestamp = ?", (now_str,))
     for coin in all_coins:
         if not coin:
             continue
@@ -241,12 +241,17 @@ def get_latest_analyzed():
         return [], "Noch keine Daten"
 
     latest_ts = row[0]
-    c.execute("SELECT * FROM snapshots WHERE timestamp = ? ORDER BY spread_apr DESC LIMIT 100", (latest_ts,))
+    c.execute("SELECT * FROM snapshots WHERE timestamp = ? ORDER BY spread_apr DESC LIMIT 200", (latest_ts,))
     latest_rows = c.fetchall()
 
     results = []
+    seen_coins = set()
     for r in latest_rows:
         _, ts, coin, oi, spread, l_ven, l_apr, s_ven, s_apr = r
+        if coin in seen_coins:
+            continue
+        seen_coins.add(coin)
+
         c.execute("SELECT long_venue, short_venue, spread_apr FROM snapshots WHERE coin = ? ORDER BY id DESC LIMIT 6", (coin,))
         hist = c.fetchall()
 
@@ -271,6 +276,9 @@ def get_latest_analyzed():
             "short_apr": s_apr,
             "status": status
         })
+        if len(results) >= 100:
+            break
+
     conn.close()
     return results, latest_ts
 
