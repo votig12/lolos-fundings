@@ -129,7 +129,7 @@ def fetch_aster():
         print("Aster Error:", e)
     return data
 
-# 6. LIGHTER (1h -> * 24 * 365)
+# 6. LIGHTER (/api/v1/funding-rates liefert rate als 8h-Dezimalwert -> / 8 für 1h, dann * 24 * 365 * 100)
 def fetch_lighter():
     data = {}
     try:
@@ -138,11 +138,13 @@ def fetch_lighter():
         for item in rates_list:
             if item.get("exchange", "lighter").lower() == "lighter":
                 coin = clean_symbol(item.get("symbol", ""))
-                fr_1h = float(item.get("rate") or 0)
+                fr_8h = float(item.get("rate") or 0)
+                fr_1h = fr_8h / 8
                 data[coin] = {"apr": fr_1h * 24 * 365 * 100, "oi": 0}
     except Exception as e:
         print("Lighter Error:", e)
     return data
+
 
 # 7. EXTENDED (1h -> * 24 * 365)
 def fetch_extended():
