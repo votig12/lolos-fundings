@@ -241,7 +241,7 @@ def get_latest_analyzed():
         return [], "Noch keine Daten"
 
     latest_ts = row[0]
-    c.execute("SELECT * FROM snapshots WHERE timestamp = ? ORDER BY spread_apr DESC LIMIT 40", (latest_ts,))
+    c.execute("SELECT * FROM snapshots WHERE timestamp = ? ORDER BY spread_apr DESC LIMIT 100", (latest_ts,))
     latest_rows = c.fetchall()
 
     results = []
