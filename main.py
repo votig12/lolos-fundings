@@ -217,15 +217,22 @@ def update_all_data():
                 total_oi += v_data[coin]["oi"]
 
         # Nur Coins mit mindestens 2 Börsen und > 2 Mio. USD Open Interest
-        if len(rates) >= 2 and total_oi > 2_000_000:
+        # Nur Coins mit mindestens 2 Börsen
+        if len(rates) >= 2:
             short_venue = max(rates, key=rates.get)
             long_venue = min(rates, key=rates.get)
             spread = rates[short_venue] - rates[long_venue]
 
-            c.execute('''
-                INSERT INTO snapshots (timestamp, coin, oi_usd, spread_apr, long_venue, long_apr, short_venue, short_apr)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            ''', (now_str, coin, total_oi, spread, long_venue, rates[long_venue], short_venue, rates[short_venue]))
+            long_oi = ois.get(long_venue, 0.0)
+            short_oi = ois.get(short_venue, 0.0)
+            pair_oi = long_oi + short_oi
+
+            if pair_oi > 2_000_000:
+                c.execute('''
+                    INSERT INTO snapshots (timestamp, coin, oi_usd, spread_apr, long_venue, long_apr, short_venue, short_apr)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (now_str, coin, pair_oi, spread, long_venue, rates[long_venue], short_venue, rates[short_venue]))
+
 
     conn.commit()
     conn.close()
