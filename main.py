@@ -190,7 +190,7 @@ def update_all_data():
         "Extended": fetch_extended,
         "Variational": fetch_variational
     }
-    
+
     venues = {}
     with ThreadPoolExecutor(max_workers=8) as executor:
         futures = {name: executor.submit(fn) for name, fn in fetchers.items()}
@@ -253,13 +253,13 @@ def get_latest_analyzed():
         flips = sum(1 for h_l, h_s, _ in hist if h_l != l_ven or h_s != s_ven)
 
         if len(hist) < 2:
-    status = "NEU (Beobachten)"
-elif len(hist) < 6:
-    status = f"AUFBAU ({len(hist)}/6 Scans)"
-elif flips == 0 and spread > 25:
-    status = "STABIL"
-else:
-    status = f"UNRUHIG ({flips}x Wechsel)"
+            status = "NEU (Beobachten)"
+        elif len(hist) < 6:
+            status = f"AUFBAU ({len(hist)}/6 Scans)"
+        elif flips == 0 and spread > 25:
+            status = "STABIL"
+        else:
+            status = f"UNRUHIG ({flips}x Wechsel)"
 
         results.append({
             "coin": coin,
