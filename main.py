@@ -145,7 +145,6 @@ def fetch_lighter():
         print("Lighter Error:", e)
     return data
 
-
 # 7. EXTENDED (1h -> * 24 * 365)
 def fetch_extended():
     data = {}
@@ -208,18 +207,18 @@ def update_all_data():
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     c.execute("DELETE FROM snapshots WHERE timestamp = ?", (now_str,))
+
     for coin in all_coins:
         if not coin:
             continue
         rates = {}
-        total_oi = 0
+        ois = {}
         for v_name, v_data in venues.items():
             if coin in v_data:
                 rates[v_name] = v_data[coin]["apr"]
-                total_oi += v_data[coin]["oi"]
+                ois[v_name] = float(v_data[coin].get("oi") or 0.0)
 
-        # Nur Coins mit mindestens 2 Börsen und > 2 Mio. USD Open Interest
-        # Nur Coins mit mindestens 2 Börsen
+        # Nur Coins mit mindestens 2 Börsen und > 2 Mio. USD OI auf den beiden Trade-Börsen
         if len(rates) >= 2:
             short_venue = max(rates, key=rates.get)
             long_venue = min(rates, key=rates.get)
@@ -234,7 +233,6 @@ def update_all_data():
                     INSERT INTO snapshots (timestamp, coin, oi_usd, spread_apr, long_venue, long_apr, short_venue, short_apr)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 ''', (now_str, coin, pair_oi, spread, long_venue, rates[long_venue], short_venue, rates[short_venue]))
-
 
     conn.commit()
     conn.close()
