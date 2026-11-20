@@ -1,3 +1,4 @@
+import os
 import sqlite3
 import requests
 from concurrent.futures import ThreadPoolExecutor
@@ -144,7 +145,6 @@ def fetch_lighter():
         print("Lighter Error:", e)
     return data
 
-
 # 7. EXTENDED (1h -> * 24 * 365)
 def fetch_extended():
     data = {}
@@ -179,6 +179,43 @@ def fetch_variational():
         print("Variational Error:", e)
     return data
 
+# COINMARKETCAP MARKET CAPS (USD)
+def fetch_cmc_marketcaps(limit=500):
+    mcaps = {}
+    best_rank = {}
+    api_key = os.getenv("CMC_API_KEY", "").strip()
+
+    try:
+        if api_key:
+            url = "https://pro-api.coinmarketcap.com/v1/cryptocurrency/listings/latest"
+            headers = {**HEADERS, "X-CMC_PRO_API_KEY": api_key}
+        else:
+            url = "https://pro-api.coinmarketcap.com/public-api/v1/cryptocurrency/listings/latest"
+            headers = HEADERS
+
+        r = requests.get(
+            url,
+            params={"start": 1, "limit": limit, "convert": "USD", "sort": "market_cap"},
+            headers=headers,
+            timeout=15
+        ).json()
+
+        for item in r.get("data", []):
+            sym = clean_symbol(item.get("symbol", ""))
+            if not sym:
+                continue
+            rank = int(item.get("cmc_rank") or 999999)
+            quote_usd = (item.get("quote") or {}).get("USD") or {}
+            mcap = float(quote_usd.get("market_cap") or 0)
+
+            if sym not in best_rank or rank < best_rank[sym]:
+                best_rank[sym] = rank
+                mcaps[sym] = mcap
+    except Exception as e:
+        print("CMC Error:", e)
+
+    return mcaps
+
 def update_all_data():
     print(f"[{datetime.now()}] Starte 8-Börsen-Scan...")
     fetchers = {
@@ -193,11 +230,16 @@ def update_all_data():
     }
 
     venues = {}
-    with ThreadPoolExecutor(max_workers=8) as executor:
+    with ThreadPoolExecutor(max_workers=9) as executor:
         futures = {name: executor.submit(fn) for name, fn in fetchers.items()}
+        cmc_future = executor.submit(fetch_cmc_marketcaps, 500)
+
         for name, fut in futures.items():
             venues[name] = fut.result()
             print(f"  -> {name}: {len(venues[name])} Coins geladen")
+
+        cmc_mcaps = cmc_future.result()
+        print(f"  -> CoinMarketCap: {len(cmc_mcaps)} Symbole geladen")
 
     all_coins = set()
     for v_data in venues.values():
@@ -211,103 +253,5 @@ def update_all_data():
     for coin in all_coins:
         if not coin:
             continue
-        rates = {}
-        ois = {}
-        for v_name, v_data in venues.items():
-            if coin in v_data:
-                rates[v_name] = v_data[coin]["apr"]
-                ois[v_name] = float(v_data[coin].get("oi") or 0.0)
 
-        # Nur Coins mit mindestens 2 Börsen und > 2 Mio. USD OI auf den beiden Trade-Börsen
-        if len(rates) >= 2:
-            short_venue = max(rates, key=rates.get)
-            long_venue = min(rates, key=rates.get)
-            spread = rates[short_venue] - rates[long_venue]
-
-            long_oi = ois.get(long_venue, 0.0)
-            short_oi = ois.get(short_venue, 0.0)
-            pair_oi = long_oi + short_oi
-
-            if pair_oi > 2_000_000:
-                c.execute('''
-                    INSERT INTO snapshots (timestamp, coin, oi_usd, spread_apr, long_venue, long_apr, short_venue, short_apr)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                ''', (now_str, coin, pair_oi, spread, long_venue, rates[long_venue], short_venue, rates[short_venue]))
-
-    conn.commit()
-    conn.close()
-    print("8-Börsen-Scan abgeschlossen.")
-
-def get_latest_analyzed():
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    c.execute("SELECT DISTINCT timestamp FROM snapshots ORDER BY id DESC LIMIT 1")
-    row = c.fetchone()
-    if not row:
-        conn.close()
-        return [], "Noch keine Daten"
-
-    latest_ts = row[0]
-    c.execute("SELECT * FROM snapshots WHERE timestamp = ? ORDER BY spread_apr DESC LIMIT 200", (latest_ts,))
-    latest_rows = c.fetchall()
-
-    results = []
-    seen_coins = set()
-    for r in latest_rows:
-        _, ts, coin, oi, spread, l_ven, l_apr, s_ven, s_apr = r
-        if coin in seen_coins:
-            continue
-        seen_coins.add(coin)
-
-        c.execute("SELECT long_venue, short_venue, spread_apr FROM snapshots WHERE coin = ? ORDER BY id DESC LIMIT 6", (coin,))
-        hist = c.fetchall()
-
-        flips = sum(1 for h_l, h_s, _ in hist if h_l != l_ven or h_s != s_ven)
-
-        if len(hist) < 2:
-            status = "NEU (Beobachten)"
-        elif len(hist) < 6:
-            status = f"AUFBAU ({len(hist)}/6 Scans)"
-        elif flips == 0 and spread > 25:
-            status = "STABIL"
-        else:
-            status = f"UNRUHIG ({flips}x Wechsel)"
-
-        results.append({
-            "coin": coin,
-            "oi": oi,
-            "spread": spread,
-            "long_venue": l_ven,
-            "long_apr": l_apr,
-            "short_venue": s_ven,
-            "short_apr": s_apr,
-            "status": status
-        })
-        if len(results) >= 100:
-            break
-
-    conn.close()
-    return results, latest_ts
-
-@app.on_event("startup")
-def startup_event():
-    init_db()
-    update_all_data()
-    scheduler = BackgroundScheduler()
-    scheduler.add_job(update_all_data, 'interval', hours=4)
-    scheduler.start()
-
-@app.get("/", response_class=HTMLResponse)
-def read_root():
-    with open("index.html", "r", encoding="utf-8") as f:
-        return f.read()
-
-@app.get("/api/data")
-def api_data():
-    rows, ts = get_latest_analyzed()
-    return {"timestamp": ts, "data": rows}
-
-@app.post("/api/refresh")
-def manual_refresh():
-    update_all_data()
-    return {"status": "ok"}
+        #
