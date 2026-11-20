@@ -130,7 +130,8 @@ def fetch_aster():
         print("Aster Error:", e)
     return data
 
-# 6. LIGHTER (rate als 8h-Prozentwert -> * 3 * 365 für einfache APR in %)
+
+    # 6. LIGHTER (rate als Dezimalzahl für 8h -> * 3 * 365 * 100 für APR in %)
 def fetch_lighter():
     data = {}
     try:
@@ -139,8 +140,8 @@ def fetch_lighter():
         for item in rates_list:
             if item.get("exchange", "lighter").lower() == "lighter":
                 coin = clean_symbol(item.get("symbol", ""))
-                rate_8h_pct = float(item.get("rate") or 0)
-                data[coin] = {"apr": rate_8h_pct * 3 * 365, "oi": 0}
+                fr_8h = float(item.get("rate") or 0)
+                data[coin] = {"apr": fr_8h * 3 * 365 * 100, "oi": 0}
     except Exception as e:
         print("Lighter Error:", e)
     return data
