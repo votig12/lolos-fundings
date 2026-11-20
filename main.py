@@ -246,7 +246,7 @@ def update_all_data():
     for v_data in venues.values():
         all_coins.update(v_data.keys())
 
-    now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     c.execute("DELETE FROM snapshots WHERE timestamp = ?", (now_str,))
