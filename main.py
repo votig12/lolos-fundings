@@ -256,7 +256,7 @@ def update_all_data():
             continue
 
         # Nur Coins mit > 50 Mio. USD Market Cap auf CoinMarketCap (falls CMC-Daten vorliegen)
-        if cmc_mcaps and cmc_mcaps.get(coin, 0) <= 50_000_000:
+        if cmc_mcaps and cmc_mcaps.get(coin, 0) <= 80_000_000:
             continue
 
         rates = {}
